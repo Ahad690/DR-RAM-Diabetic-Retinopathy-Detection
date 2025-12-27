@@ -1,0 +1,27 @@
+# .gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# Data (too large, download from Kaggle)
+data/
+*.zip
+
+# Environment
+.env
+venv/
+drram_env/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.log
+*.tmp
+
+# Do NOT ignore checkpoints - we want to share trained models!
+# checkpoints/*.pth  <-- COMMENTED OUT, we KEEP these files

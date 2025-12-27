@@ -1,0 +1,13 @@
+
+\begin{table}[h]
+\centering
+\caption{Performance Comparison}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{Acc} & \textbf{Prec} & \textbf{Rec} & \textbf{F1} & \textbf{Kappa} \\
+\midrule
+DR-RAM & 0.8213 & 0.8328 & 0.8213 & 0.8248 & 0.8914 \\
+EfficientNet-B0 & 0.7981 & 0.8188 & 0.7981 & 0.8043 & 0.8702 \\
+\bottomrule
+\end{tabular}
+\end{table}

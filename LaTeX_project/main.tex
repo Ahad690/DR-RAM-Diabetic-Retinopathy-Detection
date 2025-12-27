@@ -1,0 +1,418 @@
+\documentclass[12pt, a4paper]{article}
+
+% --- PACKAGES ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx}
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+\usepackage{cite}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{subcaption}
+
+% --- FORMATTING SETUP ---
+\onehalfspacing
+\setlength{\parindent}{0.5in}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,          
+    citecolor=blue,          
+    urlcolor=blue,            
+    pdftitle={DR-RAM: Mini-Research Report},
+    pdfauthor={Group Members}
+}
+
+% --- TITLE PAGE INFO ---
+\title{\textbf{DR-RAM: Diabetic Retinopathy Detection Using Recurrent Attention and Reinforcement Learning}}
+
+\author{
+    \textbf{National University of Technology (NUTECH)} \\[0.5em]
+    \textbf{Group Members:} \\
+    Ahad Imran (F23607034) \\
+    Zain-Ul-Abidin (F23607031) \\
+    Hamza Abdul Karim (F23607046) \\
+    Imaan Aftab (F23607041) \\[1em]
+    \textbf{Subject:} Reinforcement Learning (CS480) \\
+    \textbf{Submitted to:} Lec. Asif Mehmood \\[1em]
+    \textbf{Code Repository:} \href{https://github.com/Ahad690/DR-RAM-Diabetic-Retinopathy-Detection}{GitHub} \\
+    \textbf{Kaggle Notebook:} \href{https://www.kaggle.com/code/mahad69/dr-ram-diabetic-retinopathy-reinforcement-learning}{Kaggle}
+}
+\date{December 2025}
+
+\begin{document}
+
+\maketitle
+
+% ============================================
+% ABSTRACT
+% ============================================
+\begin{abstract}
+Diabetic Retinopathy (DR) is a leading cause of preventable blindness, affecting millions of diabetic patients globally. Current Computer-Aided Diagnosis (CAD) systems rely on passive Convolutional Neural Networks (CNNs) that process entire high-resolution fundus images, resulting in computational inefficiency and limited interpretability. This paper introduces the \textbf{Diabetic Retinopathy Recurrent Attention Model (DR-RAM)}, a novel framework that reformulates DR detection as a sequential decision-making problem with attention mechanisms inspired by Reinforcement Learning principles. Using recurrent glimpse-based processing, DR-RAM learns to sequentially attend to diagnostically relevant regions—such as the optic disc, macula, and vascular arcades—mimicking the active visual search behavior of expert ophthalmologists. Experiments on the APTOS 2019 dataset demonstrate that DR-RAM achieves a Quadratic Weighted Kappa score of \textbf{0.8914} and accuracy of \textbf{82.13\%}, outperforming the EfficientNet-B0 baseline (Kappa: 0.8702, Accuracy: 79.81\%) while providing explicit glimpse trajectories that enhance clinical interpretability. The complete implementation is available on \href{https://github.com/Ahad690/DR-RAM-Diabetic-Retinopathy-Detection}{GitHub} and \href{https://www.kaggle.com/code/mahad69/dr-ram-diabetic-retinopathy-reinforcement-learning}{Kaggle}.
+\end{abstract}
+
+% ============================================
+% 1. INTRODUCTION
+% ============================================
+\section{Introduction}
+
+\subsection{Background}
+Diabetic Retinopathy (DR) is a microvascular complication of diabetes mellitus that progressively damages the retina, potentially leading to irreversible vision loss. The International Diabetes Federation estimates that over 537 million adults have diabetes, with approximately one-third at risk of developing DR \cite{idf2021}. The condition progresses through distinct stages—from mild Non-Proliferative DR (NPDR) characterized by microaneurysms, to sight-threatening Proliferative DR (PDR) involving neovascularization and potential retinal detachment.
+
+Early detection through regular fundus screening is critical for preventing vision loss. However, the global shortage of trained ophthalmologists, particularly in developing nations, creates a significant bottleneck in DR screening programs. This disparity has motivated substantial research into automated Computer-Aided Diagnosis (CAD) systems powered by Deep Learning.
+
+\subsection{Problem Statement and Research Gap}
+Our comprehensive literature review of 30 recent studies (2020–2024) revealed that the current state-of-the-art in DR detection is dominated by supervised CNN architectures, including ResNet, DenseNet, and EfficientNet variants \cite{imran2025review}. While these models achieve impressive accuracy metrics (often exceeding 95\% on benchmark datasets), they suffer from three fundamental limitations:
+
+\begin{enumerate}
+    \item \textbf{Computational Waste:} Standard CNNs process every pixel of high-resolution fundus images (often $2000 \times 1500$ pixels) uniformly, expending significant computational resources on healthy background tissue that carries no diagnostic value.
+    
+    \item \textbf{Resolution Trade-offs:} To fit GPU memory constraints, images are typically downsampled to $224 \times 224$ or $299 \times 299$ pixels, potentially destroying subtle lesions such as microaneurysms that are only a few pixels in diameter.
+    
+    \item \textbf{The ``Black Box'' Problem:} Passive CNNs lack inherent interpretability. While post-hoc methods like Grad-CAM exist, they do not reveal the actual decision-making process—only statistical correlations.
+\end{enumerate}
+
+\subsection{Proposed Solution and Contributions}
+This paper addresses the identified gap by proposing the \textbf{Diabetic Retinopathy Recurrent Attention Model (DR-RAM)}. Rather than treating diagnosis as a static image-to-label mapping, DR-RAM is an \textit{active agent} that learns \textit{where} to look in a retinal image through attention mechanisms inspired by Reinforcement Learning. Our key contributions are:
+
+\begin{itemize}
+    \item A novel formulation of DR detection as a sequential attention problem with recurrent state aggregation.
+    \item A multi-scale glimpse sensor that mimics human foveal and peripheral vision.
+    \item Experimental validation demonstrating superior accuracy compared to EfficientNet-B0 baseline with enhanced interpretability through visualizable attention trajectories.
+    \item Open-source implementation available on GitHub and Kaggle for reproducibility.
+\end{itemize}
+
+% ============================================
+% 2. PROPOSED METHOD
+% ============================================
+\section{Proposed Method}
+
+\subsection{Problem Formulation: Sequential Attention for DR}
+We formulate DR diagnosis as a sequential decision-making problem where an agent interacts with a retinal image environment over $T$ time steps. At each step $t$, the agent:
+\begin{enumerate}
+    \item Receives a partial observation $x_t$ (a ``glimpse'' extracted from location $l_{t-1}$).
+    \item Updates its internal belief state $h_t$ using a recurrent network.
+    \item Selects the next location $l_t$ to observe.
+    \item At the final step $T$, outputs a classification decision.
+\end{enumerate}
+
+The objective is to maximize classification accuracy while learning efficient attention patterns:
+\begin{equation}
+    J(\theta) = \mathbb{E}\left[ \mathcal{L}_{CE}(y, \hat{y}) + \lambda \sum_{t=1}^{T} \mathcal{L}_{attn}(l_t) \right]
+\end{equation}
+where $\mathcal{L}_{CE}$ is the cross-entropy loss and $\mathcal{L}_{attn}$ encourages meaningful attention patterns.
+
+\subsection{Architecture Overview}
+The DR-RAM architecture consists of four interconnected neural network modules, as illustrated in Figure \ref{fig:architecture}:
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{architecture.png}
+\caption{DR-RAM System Architecture showing the Glimpse Sensor, Glimpse Network (CNN), Core Network (GRU), Location Network (Attention Policy), and Classification Network.}
+\label{fig:architecture}
+\end{figure}
+
+\subsubsection{Glimpse Sensor}
+The glimpse sensor extracts multi-resolution patches centered at location $l_t \in [-1, 1]^2$. We use $k=3$ scales, where each subsequent scale doubles the receptive field but maintains the same output resolution ($64 \times 64$). This design mimics human vision, where foveal regions provide high acuity while peripheral regions provide contextual information.
+
+\subsubsection{Glimpse Network}
+A lightweight CNN processes the concatenated multi-scale patches into a feature vector $g_t \in \mathbb{R}^{512}$. The network combines this with location information via:
+\begin{equation}
+    g_t = f_g(\rho(x_t), l_{t-1})
+\end{equation}
+
+\subsubsection{Core Network (GRU)}
+A Gated Recurrent Unit (GRU) maintains the internal state $h_t$, integrating information across glimpses:
+\begin{equation}
+    h_t = \text{GRU}(g_t, h_{t-1})
+\end{equation}
+
+\subsubsection{Location and Classification Networks}
+The location network outputs parameters for the next attention location:
+\begin{equation}
+    l_t = \tanh(f_l(h_t))
+\end{equation}
+The classification network outputs the final DR grade probabilities using a softmax layer.
+
+\subsection{Training Procedure}
+The model is trained end-to-end using:
+\begin{itemize}
+    \item \textbf{Multi-step supervision:} Classification loss computed at each glimpse step with increasing weights for later steps.
+    \item \textbf{AdamW optimizer} with learning rate $3 \times 10^{-4}$ and weight decay $10^{-4}$.
+    \item \textbf{Cosine annealing} learning rate schedule.
+    \item \textbf{Label smoothing} ($\epsilon = 0.1$) for regularization.
+    \item \textbf{Weighted random sampling} to address class imbalance.
+\end{itemize}
+
+% ============================================
+% 3. EXPERIMENTS
+% ============================================
+\section{Experiments}
+
+\subsection{Dataset}
+We use the \textbf{APTOS 2019 Blindness Detection Dataset} \cite{aptos2019} from Kaggle, containing 3,662 retinal fundus photographs graded on a 5-point scale:
+\begin{itemize}
+    \item 0: No DR (1,805 images, 49.3\%)
+    \item 1: Mild NPDR (370 images, 10.1\%)
+    \item 2: Moderate NPDR (999 images, 27.3\%)
+    \item 3: Severe NPDR (193 images, 5.3\%)
+    \item 4: Proliferative DR (295 images, 8.1\%)
+\end{itemize}
+
+The dataset exhibits significant class imbalance, which we address using weighted random sampling during training.
+
+\subsection{Preprocessing Pipeline}
+Following established practices \cite{alwakid2023}, we apply:
+\begin{enumerate}
+    \item \textbf{Black Border Cropping:} Remove black borders to isolate the retinal region using grayscale thresholding.
+    \item \textbf{Ben Graham's Preprocessing:} $I_{new} = 4I - 4 \cdot \text{Gaussian}(I, \sigma=10) + 128$ to normalize illumination and enhance vessel contrast.
+    \item \textbf{Resizing:} Images resized to $380 \times 380$ for the environment, with glimpses of $64 \times 64$.
+\end{enumerate}
+
+\subsection{Training Configuration}
+\begin{table}[H]
+\centering
+\caption{Training Hyperparameters}
+\label{tab:hyperparams}
+\begin{tabular}{ll}
+\toprule
+\textbf{Hyperparameter} & \textbf{Value} \\
+\midrule
+Train/Validation Split & 80\%/20\% (2,929 / 733 images) \\
+Batch Size & 32 \\
+Epochs & 15 \\
+Optimizer & AdamW \\
+Learning Rate & $3 \times 10^{-4}$ \\
+Weight Decay & $10^{-4}$ \\
+Number of Glimpses & 6 \\
+Hidden Size & 512 \\
+Glimpse Size & $64 \times 64$ \\
+Backbone & EfficientNet-B0 (ImageNet pretrained) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Baseline Model}
+We compare DR-RAM against \textbf{EfficientNet-B0} \cite{tan2019efficientnet}, a widely-used efficient CNN architecture. The baseline processes the full image at once without sequential attention, using the same preprocessing and training configuration for fair comparison.
+
+\subsection{Evaluation Metrics}
+We report:
+\begin{itemize}
+    \item \textbf{Accuracy:} Overall classification accuracy
+    \item \textbf{Precision, Recall, F1-Score:} Weighted averages across all classes
+    \item \textbf{Quadratic Weighted Kappa (QWK):} The standard metric for ordinal DR grading \cite{cohen1968kappa}
+\end{itemize}
+
+% ============================================
+% 4. RESULTS
+% ============================================
+\section{Results}
+
+\subsection{Quantitative Results}
+Table \ref{tab:results} presents the comparative performance of DR-RAM against the EfficientNet-B0 baseline on the validation set.
+
+\begin{table}[H]
+\centering
+\caption{Performance Comparison on APTOS 2019 Validation Set}
+\label{tab:results}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} & \textbf{Kappa} \\
+\midrule
+DR-RAM (Ours) & \textbf{0.8213} & \textbf{0.8328} & \textbf{0.8213} & \textbf{0.8248} & \textbf{0.8914} \\
+EfficientNet-B0 & 0.7981 & 0.8188 & 0.7981 & 0.8043 & 0.8702 \\
+\midrule
+\textbf{Improvement} & +2.32\% & +1.40\% & +2.32\% & +2.05\% & +2.12\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Key Findings:}
+\begin{itemize}
+    \item DR-RAM achieves a Quadratic Weighted Kappa of \textbf{0.8914}, outperforming EfficientNet-B0 (0.8702) by \textbf{2.12 percentage points}.
+    \item DR-RAM achieves \textbf{82.13\%} accuracy compared to 79.81\% for the baseline.
+    \item All metrics show consistent improvement with DR-RAM.
+\end{itemize}
+
+\subsection{Confusion Matrix Analysis}
+Figure \ref{fig:confusion} shows the confusion matrix for DR-RAM predictions on the validation set.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{confusion_matrix.png}
+\caption{Confusion Matrix for DR-RAM on the APTOS 2019 Validation Set. The model shows strong performance on No DR (0) and Moderate NPDR (2), with expected confusion between adjacent severity levels.}
+\label{fig:confusion}
+\end{figure}
+
+Key observations:
+\begin{itemize}
+    \item Strong performance on majority classes (No DR and Moderate NPDR)
+    \item Mild NPDR (class 1) shows highest confusion with No DR (class 0), consistent with subtle clinical differences
+    \item Most misclassifications occur between adjacent severity levels, which is clinically expected
+\end{itemize}
+
+\subsection{Model Comparison Visualization}
+Figure \ref{fig:comparison} presents a visual comparison of DR-RAM against the baseline across all evaluation metrics.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\textwidth]{comparison.png}
+\caption{Performance comparison between DR-RAM and EfficientNet-B0 across all metrics. DR-RAM consistently outperforms the baseline, with the largest improvement in Quadratic Weighted Kappa.}
+\label{fig:comparison}
+\end{figure}
+
+\subsection{Glimpse Trajectory Visualization}
+Figure \ref{fig:glimpses} demonstrates DR-RAM's learned attention patterns, providing interpretability absent in standard CNN approaches.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{attention_0.png}
+\caption{Glimpse trajectory visualization showing the sequential attention pattern learned by DR-RAM. Numbers indicate the order of glimpses (1-6), demonstrating the model's strategy of examining different retinal regions to accumulate diagnostic evidence.}
+\label{fig:glimpses}
+\end{figure}
+
+The agent typically exhibits the following attention behavior:
+\begin{enumerate}
+    \item \textbf{Initial Orientation:} Begins near the image center
+    \item \textbf{Anatomical Landmark Detection:} Moves towards the optic disc
+    \item \textbf{Vascular Examination:} Traverses vascular arcades where lesions commonly appear
+    \item \textbf{Lesion Investigation:} Focuses on suspicious regions
+    \item \textbf{Confirmation:} Final glimpses verify findings before classification
+\end{enumerate}
+
+% ============================================
+% 5. DISCUSSION
+% ============================================
+\section{Discussion}
+
+\subsection{Why DR-RAM Outperforms Standard CNNs}
+The superior performance of DR-RAM can be attributed to:
+
+\begin{enumerate}
+    \item \textbf{Focused Processing:} By attending to specific regions sequentially, the model allocates computational resources to diagnostically relevant areas.
+    
+    \item \textbf{Multi-scale Integration:} The glimpse sensor's multi-resolution design captures both fine details (microaneurysms) and broader context (vascular patterns).
+    
+    \item \textbf{Temporal Aggregation:} The GRU-based core network effectively integrates information across multiple glimpses.
+\end{enumerate}
+
+\subsection{Clinical Interpretability}
+Unlike traditional CNNs, DR-RAM's glimpse trajectories offer:
+\begin{itemize}
+    \item \textbf{Explicit Reasoning:} The sequence shows exactly where the model looked
+    \item \textbf{Alignment with Clinical Practice:} Patterns mirror ophthalmologist examination behavior
+    \item \textbf{Error Analysis:} Failed predictions can be debugged by examining attention
+\end{itemize}
+
+% ============================================
+% 6. CONCLUSION
+% ============================================
+\section{Conclusion}
+
+\subsection{Summary of Findings}
+This paper introduced DR-RAM, achieving:
+\begin{enumerate}
+    \item \textbf{Superior Performance:} Kappa of \textbf{0.8914} vs baseline 0.8702 (+2.12\%)
+    \item \textbf{Interpretability:} Explicit, visualizable glimpse trajectories
+    \item \textbf{Reproducibility:} Open-source code on GitHub and Kaggle
+\end{enumerate}
+
+\subsection{Limitations}
+\begin{itemize}
+    \item Fixed number of 6 glimpses; adaptive stopping could improve efficiency
+    \item Validation limited to APTOS 2019 dataset
+    \item Low GPU utilization indicates room for optimization
+\end{itemize}
+
+\subsection{Future Work}
+\begin{itemize}
+    \item Implement explicit RL training (REINFORCE, PPO) for location policy
+    \item Adaptive stopping based on confidence
+    \item Multi-dataset validation (Messidor-2, EyePACS)
+    \item Clinical deployment trials
+\end{itemize}
+
+% ============================================
+% REPRODUCIBILITY
+% ============================================
+\section*{Code Availability}
+The complete implementation, trained models, and experimental notebooks are available at:
+\begin{itemize}
+    \item \textbf{GitHub:} \url{https://github.com/Ahad690/DR-RAM-Diabetic-Retinopathy-Detection}
+    \item \textbf{Kaggle:} \url{https://www.kaggle.com/code/mahad69/dr-ram-diabetic-retinopathy-reinforcement-learning}
+\end{itemize}
+
+% ============================================
+% REFERENCES
+% ============================================
+\begin{thebibliography}{99}
+
+\bibitem{imran2025review}
+A. Imran, Z. Abidin, H. A. Karim, and I. Aftab, ``Literature Review: Deep Learning Approaches in Diabetic Retinopathy,'' 
+Assignment 01-02, CS480 Reinforcement Learning, NUCES, 2025.
+
+\bibitem{idf2021}
+International Diabetes Federation, ``IDF Diabetes Atlas, 10th Edition,'' 
+2021. [Online]. Available: \url{https://diabetesatlas.org/}
+
+\bibitem{aptos2019}
+Asia Pacific Tele-Ophthalmology Society, ``APTOS 2019 Blindness Detection,'' 
+Kaggle, 2019. [Online]. Available: \url{https://www.kaggle.com/competitions/aptos2019-blindness-detection}
+
+\bibitem{tan2019efficientnet}
+M. Tan and Q. V. Le, ``EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks,'' 
+in \textit{Proc. ICML}, 2019, pp. 6105--6114. [Online]. Available: \url{https://arxiv.org/abs/1905.11946}
+
+\bibitem{mnih2014ram}
+V. Mnih, N. Heess, A. Graves, and K. Kavukcuoglu, ``Recurrent Models of Visual Attention,'' 
+in \textit{NeurIPS}, 2014, pp. 2204--2212. [Online]. Available: \url{https://arxiv.org/abs/1406.6247}
+
+\bibitem{alwakid2023}
+G. Alwakid, W. Gouda, and M. Humayun, ``Deep learning-based prediction of diabetic retinopathy using CLAHE and ESRGAN,'' 
+\textit{Healthcare}, vol. 11, no. 6, p. 863, 2023. [Online]. Available: \url{https://www.mdpi.com/2227-9032/11/6/863}
+
+\bibitem{alahmadi2024}
+R. Al-ahmadi, H. Al-ghamdi, and L. Hsairi, ``Classification of Diabetic Retinopathy by Deep Learning,'' 
+\textit{Int. J. Online Biomed. Eng.}, vol. 20, no. 1, 2024. [Online]. Available: \url{https://online-journals.org/index.php/i-joe/article/view/45775}
+
+\bibitem{dai2021nature}
+L. Dai \textit{et al.}, ``A deep learning system for detecting diabetic retinopathy across the disease spectrum,'' 
+\textit{Nature Communications}, vol. 12, p. 3242, 2021. [Online]. Available: \url{https://www.nature.com/articles/s41467-021-23458-5}
+
+\bibitem{gulshan2016jama}
+V. Gulshan \textit{et al.}, ``Development and Validation of a Deep Learning Algorithm for Detection of Diabetic Retinopathy,'' 
+\textit{JAMA}, vol. 316, no. 22, pp. 2402--2410, 2016. [Online]. Available: \url{https://jamanetwork.com/journals/jama/fullarticle/2588763}
+
+\bibitem{he2016resnet}
+K. He, X. Zhang, S. Ren, and J. Sun, ``Deep Residual Learning for Image Recognition,'' 
+in \textit{Proc. CVPR}, 2016, pp. 770--778. [Online]. Available: \url{https://arxiv.org/abs/1512.03385}
+
+\bibitem{huang2017densenet}
+G. Huang, Z. Liu, L. van der Maaten, and K. Q. Weinberger, ``Densely Connected Convolutional Networks,'' 
+in \textit{Proc. CVPR}, 2017, pp. 4700--4708. [Online]. Available: \url{https://arxiv.org/abs/1608.06993}
+
+\bibitem{cho2014gru}
+K. Cho \textit{et al.}, ``Learning Phrase Representations using RNN Encoder-Decoder,'' 
+in \textit{Proc. EMNLP}, 2014, pp. 1724--1734. [Online]. Available: \url{https://arxiv.org/abs/1406.1078}
+
+\bibitem{loshchilov2017adamw}
+I. Loshchilov and F. Hutter, ``Decoupled Weight Decay Regularization,'' 
+in \textit{Proc. ICLR}, 2019. [Online]. Available: \url{https://arxiv.org/abs/1711.05101}
+
+\bibitem{cohen1968kappa}
+J. Cohen, ``Weighted kappa: Nominal scale agreement provision for scaled disagreement or partial credit,'' 
+\textit{Psychological Bulletin}, vol. 70, no. 4, pp. 213--220, 1968.
+
+\bibitem{momeni2018dram}
+A. Momeni \textit{et al.}, ``Deep Recurrent Attention Models for Histopathological Image Analysis,'' 
+\textit{bioRxiv}, 2018. [Online]. Available: \url{https://www.biorxiv.org/content/10.1101/438341v1}
+
+\end{thebibliography}
+
+\end{document}
