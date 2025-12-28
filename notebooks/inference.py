@@ -389,8 +389,15 @@ def main():
     print("=" * 60)
     
     # ----- Configuration -----
-    CHECKPOINT_PATH = 'checkpoints/drram_best.pth'  # Path to your saved model
-    IMAGE_PATH = 'sample_image.png'                  # Path to test image
+    CHECKPOINT_PATH = 'results/checkpoints/drram_best.pth'  # Path to your saved model
+    
+    # Use one of the sample images if they exist, otherwise fallback
+    SAMPLE_DIR = 'sample_images'
+    if os.path.exists(SAMPLE_DIR) and os.listdir(SAMPLE_DIR):
+        IMAGE_PATH = os.path.join(SAMPLE_DIR, os.listdir(SAMPLE_DIR)[0])
+    else:
+        IMAGE_PATH = 'sample_image.png'
+        
     DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
     
     print(f"\nDevice: {DEVICE}")

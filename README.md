@@ -105,7 +105,7 @@ jupyter notebook notebooks/dr-ram-aptos2019.ipynb
 
 ### 6. Run Inference
 
-To test the model on a single image and visualize the attention trajectory, use the provided inference script:
+To test the model on a sample image and visualize the attention trajectory, use the provided inference script. The project includes a `sample_images/` folder with 20 test images from the APTOS dataset.
 
 ```bash
 # Run the inference script (from project root)
@@ -113,7 +113,7 @@ python notebooks/inference.py
 ```
 
 > [!TIP]
-> You can customize the `CHECKPOINT_PATH` and `IMAGE_PATH` variables inside `notebooks/inference.py` to test different models or images. By default, it looks for the model in `results/checkpoints/drram_best.pth`.
+> By default, the script picks the first image from `sample_images/`. You can change the `IMAGE_PATH` variable in `notebooks/inference.py` to test any of the 20 images.
 
 ---
 
@@ -142,6 +142,8 @@ DR-RAM-Diabetic-Retinopathy-Detection/
 ├── 📄 LaTeX_project/               # LaTeX source for report
 │   ├── main.tex                    # Main LaTeX file
 │   └── architecture.png            # Architecture diagram
+│
+├── 🎨 sample_images/               # Sample retinal images for testing
 │
 ├── 📜 Report.pdf                   # Final research report
 ├── 📋 requirements.txt             # Python dependencies
