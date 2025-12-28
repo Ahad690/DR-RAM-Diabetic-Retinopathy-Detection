@@ -107,9 +107,21 @@ jupyter notebook notebooks/dr-ram-aptos2019.ipynb
 
 To test the model on a sample image and visualize the attention trajectory, use the provided inference script. The project includes a `sample_images/` folder with 20 test images from the APTOS dataset.
 
-```bash
-# Run the inference script (from project root)
-python notebooks/inference.py
+#### Quick Start (Colab/Kaggle)
+Copy and paste this single cell into your notebook to run inference immediately:
+
+```python
+# 1. Clone & Setup
+!git clone https://github.com/Ahad690/DR-RAM-Diabetic-Retinopathy-Detection.git
+%cd DR-RAM-Diabetic-Retinopathy-Detection
+!pip install -r requirements.txt -q
+
+# 2. Run Inference
+!python notebooks/inference.py
+
+# 3. Display Result
+from IPython.display import Image, display
+display(Image('prediction_result.png'))
 ```
 
 > [!TIP]
