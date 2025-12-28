@@ -112,11 +112,15 @@ Copy and paste this single cell into your notebook to run inference immediately:
 
 ```python
 # 1. Clone & Setup
-!git clone https://github.com/Ahad690/DR-RAM-Diabetic-Retinopathy-Detection.git
-%cd DR-RAM-Diabetic-Retinopathy-Detection
+import os
+REPO_NAME = 'DR-RAM-Diabetic-Retinopathy-Detection'
+if not os.path.exists(REPO_NAME):
+    !git clone https://github.com/Ahad690/{REPO_NAME}.git
+    
+%cd {REPO_NAME}
 !pip install -r requirements.txt -q
 
-# 2. Run Inference
+# 2. Run Inference (picks a random image from sample_images/)
 !python notebooks/inference.py
 
 # 3. Display Result

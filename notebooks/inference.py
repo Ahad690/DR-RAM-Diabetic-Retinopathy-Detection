@@ -15,6 +15,7 @@ Course: CS480 - Reinforcement Learning
 """
 
 import os
+import random
 import numpy as np
 import cv2
 import torch
@@ -391,10 +392,13 @@ def main():
     # ----- Configuration -----
     CHECKPOINT_PATH = 'results/checkpoints/drram_best.pth'  # Path to your saved model
     
-    # Use one of the sample images if they exist, otherwise fallback
+    # Use a random sample image if they exist, otherwise fallback
     SAMPLE_DIR = 'sample_images'
     if os.path.exists(SAMPLE_DIR) and os.listdir(SAMPLE_DIR):
-        IMAGE_PATH = os.path.join(SAMPLE_DIR, os.listdir(SAMPLE_DIR)[0])
+        all_samples = os.listdir(SAMPLE_DIR)
+        selected_image = random.choice(all_samples)
+        IMAGE_PATH = os.path.join(SAMPLE_DIR, selected_image)
+        print(f"Selecting random image: {selected_image}")
     else:
         IMAGE_PATH = 'sample_image.png'
         
