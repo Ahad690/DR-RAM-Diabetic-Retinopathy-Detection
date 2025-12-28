@@ -323,11 +323,17 @@ def visualize_prediction(image, predicted_class, probabilities, locations, save_
     # DR grade names
     class_names = ['No DR', 'Mild', 'Moderate', 'Severe', 'Proliferative DR']
     
-    # Create figure with 2 subplots
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    # Create figure with 3 subplots
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
     
-    # ----- LEFT: Attention Trajectory -----
-    ax1 = axes[0]
+    # ----- LEFT: Original Image -----
+    ax0 = axes[0]
+    ax0.imshow(image)
+    ax0.set_title('Original Image', fontsize=14)
+    ax0.axis('off')
+    
+    # ----- MIDDLE: Attention Trajectory -----
+    ax1 = axes[1]
     ax1.imshow(image)
     
     H, W = image.shape[:2]
@@ -355,7 +361,7 @@ def visualize_prediction(image, predicted_class, probabilities, locations, save_
     ax1.axis('off')
     
     # ----- RIGHT: Probability Bar Chart -----
-    ax2 = axes[1]
+    ax2 = axes[2]
     colors = ['green' if i == predicted_class else 'steelblue' for i in range(5)]
     bars = ax2.barh(class_names, probabilities, color=colors)
     ax2.set_xlim(0, 1)
